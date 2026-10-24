@@ -1,4 +1,5 @@
 import { motion } from "framer-motion";
+import ProcessTerminator from "./ProcessTerminator";
 
 export default function LeftPanel(props) {
   const {
@@ -21,6 +22,10 @@ export default function LeftPanel(props) {
     loadDeadlockPreset = () => {},
 
     resetSystem = () => {},
+    
+    onTerminateProcess = () => {},
+    edges = [],
+    addLog = () => {},
   } = props;
 
   const processes = nodes.filter(
@@ -32,7 +37,7 @@ export default function LeftPanel(props) {
   );
 
   return (
-    <div className="h-full p-4 bg-zinc-950 flex flex-col gap-4 overflow-hidden">
+    <div className="h-full p-4 bg-zinc-950 flex flex-col gap-4 overflow-y-auto overflow-x-hidden custom-scrollbar">
 
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">
@@ -111,6 +116,15 @@ export default function LeftPanel(props) {
           Deadlock Scenario
         </button>
 
+      </Section>
+
+      <Section title="Process Management">
+        <ProcessTerminator
+          nodes={nodes}
+          edges={edges}
+          onTerminate={onTerminateProcess}
+          addLog={addLog}
+        />
       </Section>
 
       

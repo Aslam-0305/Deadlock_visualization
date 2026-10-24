@@ -3,6 +3,11 @@ import LeftPanel from "./components/LeftPanel";
 import GraphCanvas from "./components/GraphCanvas";
 import RightPanel from "./components/RightPanel";
 import { detectDeadlock } from "./utils/deadlock";
+import {
+  preemptResource,
+  releaseHeldResources,
+  rollbackBlockedProcess,
+} from "./utils/recovery";
 
 export default function App() {
   const [nodes, setNodes] = useState([]);
@@ -53,13 +58,14 @@ export default function App() {
     const newNode = {
       id: `R${count}`,
       type: "resource",
+      instances: 1, // Default to 1 instance
       x: 320 + Math.random() * 350,
       y: 100 + Math.random() * 320,
     };
 
     setNodes((prev) => [...prev, newNode]);
 
-    addLog(`${newNode.id} created`);
+    addLog(`${newNode.id} created (1 instance)`);
   }
 
   function addRequest() {
@@ -112,12 +118,77 @@ export default function App() {
   setSelectedResource("");
 }
 
+function handleTerminateProcess(processId, allocatedResources, pendingRequests) {
+  // Remove the process node
+  setNodes((prev) => prev.filter((node) => node.id !== processId));
+
+  // Remove all edges associated with this process
+  setEdges((prev) =>
+    prev.filter((edge) => edge.from !== processId && edge.to !== processId)
+  );
+
+  // Log detailed termination info
+  addLog(`Process ${processId} terminated`);
+  
+  if (allocatedResources.length > 0) {
+    addLog(`Released resources: ${allocatedResources.join(", ")}`);
+  }
+  
+  if (pendingRequests.length > 0) {
+    addLog(`Removed pending requests for: ${pendingRequests.join(", ")}`);
+  }
+
+  // Run deadlock detection after termination
+  setTimeout(() => {
+    addLog("Deadlock detection re-run");
+  }, 100);
+
+  // Clear selection if terminated process was selected
+  if (selectedProcess === processId) {
+    setSelectedProcess("");
+  }
+}
+
+// Recovery action handlers
+function handlePreemptResource(resourceId) {
+  const result = preemptResource(resourceId, nodes, edges, addLog);
+  
+  if (result.success) {
+    setEdges(result.edges);
+    addLog("Deadlock detection re-run");
+  } else {
+    addLog(`Preemption failed: ${result.message}`);
+  }
+}
+
+function handleReleaseResources() {
+  const result = releaseHeldResources(nodes, edges, analysis.cycle, addLog);
+  
+  if (result.success) {
+    setEdges(result.edges);
+    addLog("Deadlock detection re-run");
+  } else {
+    addLog(`Release failed: ${result.message}`);
+  }
+}
+
+function handleRollback() {
+  const result = rollbackBlockedProcess(nodes, edges, analysis.cycle, addLog);
+  
+  if (result.success) {
+    setEdges(result.edges);
+    addLog("Deadlock detection re-run");
+  } else {
+    addLog(`Rollback failed: ${result.message}`);
+  }
+}
+
 function loadDeadlockPreset() {
   const presetNodes = [
     { id: "P1", type: "process", x: 180, y: 140 },
     { id: "P2", type: "process", x: 520, y: 340 },
-    { id: "R1", type: "resource", x: 500, y: 140 },
-    { id: "R2", type: "resource", x: 220, y: 340 },
+    { id: "R1", type: "resource", instances: 1, x: 500, y: 140 },
+    { id: "R2", type: "resource", instances: 1, x: 220, y: 340 },
   ];
 
   const presetEdges = [
@@ -137,7 +208,7 @@ function loadDeadlockPreset() {
 function loadSafePreset() {
   const presetNodes = [
     { id: "P1", type: "process", x: 220, y: 220 },
-    { id: "R1", type: "resource", x: 500, y: 220 },
+    { id: "R1", type: "resource", instances: 1, x: 500, y: 220 },
   ];
 
   const presetEdges = [
@@ -181,6 +252,10 @@ function loadSafePreset() {
           loadSafePreset={loadSafePreset}
           resetSystem={resetSystem}
           
+          nodes={nodes}
+          edges={edges}
+          onTerminateProcess={handleTerminateProcess}
+          addLog={addLog}
         />
       </div>
 
@@ -201,6 +276,9 @@ function loadSafePreset() {
           logs={logs}
           cycle={analysis.cycle}
           resetSystem={resetSystem}
+          onPreemptResource={handlePreemptResource}
+          onReleaseResources={handleReleaseResources}
+          onRollback={handleRollback}
         />
       </div>
 

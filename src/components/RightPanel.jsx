@@ -1,3 +1,6 @@
+import DeadlockScenarioAnalyzer from "./DeadlockScenarioAnalyzer";
+import { getPreemptableResources, canReleaseResources, canRollback } from "../utils/recovery";
+
 export default function RightPanel({
   nodes = [],
   edges = [],
@@ -5,6 +8,9 @@ export default function RightPanel({
   logs = [],
   cycle = [],
   resetSystem = () => {},
+  onPreemptResource = () => {},
+  onReleaseResources = () => {},
+  onRollback = () => {},
 }) {
   const processCount =
     nodes.filter(
@@ -28,8 +34,13 @@ export default function RightPanel({
       id.startsWith("R")
     ) || "R1";
 
+  // Get preemptable resources for dynamic button generation
+  const preemptableResources = getPreemptableResources(nodes, edges);
+  const canRelease = canReleaseResources(cycle);
+  const canRollbackProcess = canRollback(cycle);
+
   return (
-    <div className="h-full p-4 bg-zinc-950 flex flex-col gap-4 overflow-hidden">
+    <div className="h-full p-4 bg-zinc-950 flex flex-col gap-4 overflow-y-auto overflow-x-hidden custom-scrollbar">
 
       <div className="flex items-start justify-between">
 
@@ -96,23 +107,46 @@ export default function RightPanel({
       <Panel title="Deadlock Recovery">
 
         {deadlock ? (
-          <div className="space-y-2 text-sm">
+          <div className="space-y-3">
 
-            <Suggestion red>
-              Terminate {culpritProcess}
-            </Suggestion>
+            {/* Preempt Resource Buttons */}
+            {preemptableResources.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-xs text-zinc-500 font-medium">Preempt Resources:</p>
+                <div className="flex flex-wrap gap-2">
+                  {preemptableResources.map((resource) => (
+                    <button
+                      key={resource.id}
+                      onClick={() => onPreemptResource(resource.id)}
+                      className="px-3 py-2 rounded-xl bg-yellow-950/40 border border-yellow-900 text-yellow-200 hover:bg-yellow-900/60 hover:border-yellow-700 transition-all duration-300 text-sm font-medium"
+                      title={`Preempt ${resource.id} from ${resource.allocatedTo}`}
+                    >
+                      Preempt {resource.id}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
 
-            <Suggestion>
-              Preempt {culpritResource}
-            </Suggestion>
+            {/* Release Held Resources Button */}
+            <button
+              onClick={onReleaseResources}
+              disabled={!canRelease}
+              className="w-full p-3 rounded-xl bg-blue-950/40 border border-blue-900 text-blue-200 hover:bg-blue-900/60 hover:border-blue-700 transition-all duration-300 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-blue-950/40 disabled:hover:border-blue-900"
+              title={canRelease ? "Release resources from blocked process" : "No blocked processes"}
+            >
+              Release Held Resources
+            </button>
 
-            <Suggestion>
-              Release held resources
-            </Suggestion>
-
-            <Suggestion>
-              Rollback blocked process
-            </Suggestion>
+            {/* Rollback Blocked Process Button */}
+            <button
+              onClick={onRollback}
+              disabled={!canRollbackProcess}
+              className="w-full p-3 rounded-xl bg-purple-950/40 border border-purple-900 text-purple-200 hover:bg-purple-900/60 hover:border-purple-700 transition-all duration-300 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-purple-950/40 disabled:hover:border-purple-900"
+              title={canRollbackProcess ? "Rollback blocked process to checkpoint" : "No blocked processes"}
+            >
+              Rollback Blocked Process
+            </button>
 
           </div>
         ) : (
@@ -141,6 +175,16 @@ export default function RightPanel({
             ))
           )}
         </div>
+      </Panel>
+
+      {/* Deadlock Scenario Analyzer */}
+      <Panel title="Potential Deadlock Scenarios">
+        <DeadlockScenarioAnalyzer
+          nodes={nodes}
+          edges={edges}
+          cycle={cycle}
+          deadlock={deadlock}
+        />
       </Panel>
 
     </div>
@@ -196,23 +240,6 @@ function Panel({
       <div className="p-4 rounded-2xl bg-zinc-900 border border-zinc-800">
         {children}
       </div>
-    </div>
-  );
-}
-
-function Suggestion({
-  children,
-  red = false,
-}) {
-  return (
-    <div
-      className={`p-2 rounded-xl border text-sm ${
-        red
-          ? "bg-red-950/40 border-red-900 text-red-200"
-          : "bg-zinc-950 border-zinc-800 text-zinc-300"
-      }`}
-    >
-      • {children}
     </div>
   );
 }
