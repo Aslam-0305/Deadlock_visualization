@@ -62,7 +62,13 @@ export default function Simulator() {
     }
     const resource = resources.find(r => r.id === selectedResource);
     if (resource && resource.availableInstances < 1) {
-      showFeedback(`${selectedResource} has no available instances.`, false);
+      // No free instances — create a REQUEST instead (causes deadlock condition)
+      const ok = requestResource(selectedProcess, selectedResource);
+      if (ok) {
+        showFeedback(`${selectedResource} fully allocated → request created for ${selectedProcess} (deadlock risk!)`, false);
+      } else {
+        showFeedback(`${selectedProcess} already waiting for ${selectedResource}.`, false);
+      }
       return;
     }
     const ok = allocateResource(selectedProcess, selectedResource);
@@ -326,9 +332,11 @@ export default function Simulator() {
               <div className={`mb-3 px-4 py-2 rounded-lg text-sm font-medium animate-fadeInDown ${
                 actionFeedback.ok
                   ? 'bg-green-50 text-green-700 border border-green-200'
+                  : actionFeedback.msg.includes('deadlock risk')
+                  ? 'bg-orange-50 text-orange-700 border border-orange-300'
                   : 'bg-red-50 text-red-700 border border-red-200'
               }`}>
-                {actionFeedback.ok ? '✓ ' : '✗ '}{actionFeedback.msg}
+                {actionFeedback.ok ? '✓ ' : actionFeedback.msg.includes('deadlock risk') ? '⚠ ' : '✗ '}{actionFeedback.msg}
               </div>
             )}
 
