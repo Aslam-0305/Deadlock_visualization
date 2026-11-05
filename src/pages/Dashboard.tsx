@@ -22,48 +22,48 @@ export default function Dashboard() {
       title: 'Total Processes',
       value: processes.length,
       icon: Cpu,
-      color: 'text-primary-600',
-      bgColor: 'bg-primary-50',
+      color: '#295255',
+      bgColor: 'rgba(41,82,85,0.12)',
       change: '+2 today',
     },
     {
       title: 'Total Resources',
       value: resources.length,
       icon: HardDrive,
-      color: 'text-violet-600',
-      bgColor: 'bg-violet-50',
+      color: '#577877',
+      bgColor: 'rgba(87,120,119,0.15)',
       change: '+1 today',
     },
     {
       title: 'Active Requests',
       value: edges.filter(e => e.type === 'request').length,
       icon: Activity,
-      color: 'text-cyan-600',
-      bgColor: 'bg-cyan-50',
+      color: '#0891B2',
+      bgColor: 'rgba(8,145,178,0.12)',
       change: `${edges.filter(e => e.type === 'request').length} pending`,
     },
     {
       title: 'Allocated Resources',
       value: edges.filter(e => e.type === 'allocation').length,
       icon: Package,
-      color: 'text-success-600',
-      bgColor: 'bg-green-50',
+      color: '#15803D',
+      bgColor: 'rgba(21,128,61,0.12)',
       change: `${resources.reduce((sum, r) => sum + (r.totalInstances - r.availableInstances), 0)} instances`,
     },
     {
       title: 'Deadlocks Detected',
       value: totalDeadlocksDetected,
       icon: AlertCircle,
-      color: 'text-danger-600',
-      bgColor: 'bg-red-50',
+      color: '#DC2626',
+      bgColor: 'rgba(220,38,38,0.1)',
       change: systemState === 'deadlocked' ? 'Active now' : 'None active',
     },
     {
       title: 'System Status',
       value: systemState.toUpperCase(),
       icon: TrendingUp,
-      color: systemState === 'safe' ? 'text-success-600' : systemState === 'unsafe' ? 'text-yellow-600' : 'text-danger-600',
-      bgColor: systemState === 'safe' ? 'bg-green-50' : systemState === 'unsafe' ? 'bg-yellow-50' : 'bg-red-50',
+      color: systemState === 'safe' ? '#15803D' : systemState === 'unsafe' ? '#B45309' : '#DC2626',
+      bgColor: systemState === 'safe' ? 'rgba(21,128,61,0.12)' : systemState === 'unsafe' ? 'rgba(180,83,9,0.12)' : 'rgba(220,38,38,0.1)',
       change: 'Real-time',
     },
   ];
@@ -87,20 +87,23 @@ export default function Dashboard() {
         {stats.map((stat, index) => {
           const Icon = stat.icon;
           return (
-            <div 
-              key={index} 
+            <div
+              key={index}
               className="stat-card"
               style={{ animationDelay: `${index * 100}ms` }}
             >
               <div className="flex items-start justify-between">
                 <div className="flex-1">
-                  <p className="text-sm text-text-secondary mb-1">{stat.title}</p>
-                  <h3 className="text-3xl font-bold text-text-primary mb-2 transition-all duration-300">
+                  <p className="text-sm mb-1" style={{ color: '#577877' }}>{stat.title}</p>
+                  <h3 className="text-3xl font-bold mb-2 transition-all duration-300" style={{ color: '#162623' }}>
                     {stat.value}
                   </h3>
-                  <p className="text-xs text-text-secondary">{stat.change}</p>
+                  <p className="text-xs" style={{ color: '#8AABA9' }}>{stat.change}</p>
                 </div>
-                <div className={`stat-icon ${stat.bgColor} ${stat.color} w-12 h-12 rounded-xl flex items-center justify-center`}>
+                <div
+                  className="stat-icon w-12 h-12 rounded-xl flex items-center justify-center"
+                  style={{ background: stat.bgColor, color: stat.color }}
+                >
                   <Icon className="w-6 h-6" />
                 </div>
               </div>
@@ -127,8 +130,8 @@ export default function Dashboard() {
                     borderRadius: '8px' 
                   }} 
                 />
-                <Bar dataKey="used" fill="#2563EB" name="Used" />
-                <Bar dataKey="available" fill="#06B6D4" name="Available" />
+                <Bar dataKey="used" fill="#295255" name="Used" />
+                <Bar dataKey="available" fill="#577877" name="Available" />
               </BarChart>
             </ResponsiveContainer>
           ) : (
@@ -154,7 +157,7 @@ export default function Dashboard() {
                     borderRadius: '8px' 
                   }} 
                 />
-                <Line type="monotone" dataKey="events" stroke="#7C3AED" strokeWidth={2} />
+                <Line type="monotone" dataKey="events" stroke="#295255" strokeWidth={2} />
               </LineChart>
             </ResponsiveContainer>
           ) : (
@@ -206,12 +209,13 @@ export default function Dashboard() {
                     : 0}%
                 </span>
               </div>
-              <div className="w-full bg-background-secondary rounded-full h-2">
-                <div 
-                  className="bg-primary-600 h-2 rounded-full transition-all"
-                  style={{ 
-                    width: resources.length > 0 
-                      ? `${Math.round((resources.reduce((sum, r) => sum + (r.totalInstances - r.availableInstances), 0) / 
+              <div className="w-full rounded-full h-2" style={{ background: '#E4ECEE' }}>
+                <div
+                  className="h-2 rounded-full transition-all"
+                  style={{
+                    background: '#295255',
+                    width: resources.length > 0
+                      ? `${Math.round((resources.reduce((sum, r) => sum + (r.totalInstances - r.availableInstances), 0) /
                           resources.reduce((sum, r) => sum + r.totalInstances, 0)) * 100)}%`
                       : '0%'
                   }}
@@ -221,35 +225,32 @@ export default function Dashboard() {
 
             <div>
               <div className="flex justify-between text-sm mb-2">
-                <span className="text-text-secondary">Process Load</span>
-                <span className="text-text-primary font-medium">
+                <span style={{ color: '#577877' }}>Process Load</span>
+                <span className="font-medium" style={{ color: '#162623' }}>
                   {processes.length > 0 ? Math.min(processes.length * 20, 100) : 0}%
                 </span>
               </div>
-              <div className="w-full bg-background-secondary rounded-full h-2">
-                <div 
-                  className="bg-violet-600 h-2 rounded-full transition-all"
-                  style={{ width: `${processes.length > 0 ? Math.min(processes.length * 20, 100) : 0}%` }}
+              <div className="w-full rounded-full h-2" style={{ background: '#E4ECEE' }}>
+                <div
+                  className="h-2 rounded-full transition-all"
+                  style={{ width: `${processes.length > 0 ? Math.min(processes.length * 20, 100) : 0}%`, background: '#577877' }}
                 />
               </div>
             </div>
 
             <div>
               <div className="flex justify-between text-sm mb-2">
-                <span className="text-text-secondary">System Health</span>
-                <span className="text-text-primary font-medium">
+                <span style={{ color: '#577877' }}>System Health</span>
+                <span className="font-medium" style={{ color: '#162623' }}>
                   {systemState === 'safe' ? '100%' : systemState === 'unsafe' ? '60%' : '20%'}
                 </span>
               </div>
-              <div className="w-full bg-background-secondary rounded-full h-2">
-                <div 
-                  className={`h-2 rounded-full transition-all ${
-                    systemState === 'safe' ? 'bg-success-600' :
-                    systemState === 'unsafe' ? 'bg-yellow-500' :
-                    'bg-danger-600'
-                  }`}
-                  style={{ 
-                    width: systemState === 'safe' ? '100%' : systemState === 'unsafe' ? '60%' : '20%'
+              <div className="w-full rounded-full h-2" style={{ background: '#E4ECEE' }}>
+                <div
+                  className="h-2 rounded-full transition-all"
+                  style={{
+                    background: systemState === 'safe' ? '#16A34A' : systemState === 'unsafe' ? '#D97706' : '#DC2626',
+                    width: systemState === 'safe' ? '100%' : systemState === 'unsafe' ? '60%' : '20%',
                   }}
                 />
               </div>
