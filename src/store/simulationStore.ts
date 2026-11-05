@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { detectCycle } from '../algorithms/cycleDetection';
 
 export type ProcessStatus = 'ready' | 'running' | 'blocked' | 'terminated';
 export type SystemState = 'safe' | 'unsafe' | 'deadlocked';
@@ -287,7 +288,12 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
     const resource = get().resources.find(r => r.id === resourceId);
     
     if (!process || !resource) return false;
-    if (resource.availableInstances < instances) return false;
+
+    // If no instances available → auto-create a REQUEST instead
+    // This is how deadlocks form: P holds R1 and requests R2 which is already held
+    if (resource.availableInstances < instances) {
+      return get().requestResource(processId, resourceId, instances);
+    }
     
     // Remove request edge if exists
     const requestEdgeId = `${processId}->${resourceId}`;
@@ -377,7 +383,7 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
     return true;
   },
 
-  // Detection (stub - will be implemented in detection module)
+  // Detection (used by DetectionEngine page for step-by-step visualization)
   runDetection: () => {
     const state = get();
     const algorithm = state.detectionAlgorithm;
@@ -385,10 +391,7 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
     let result: DetectionResult;
     
     if (algorithm === 'cycle') {
-      // Import dynamically to avoid circular deps
-      const { detectCycle } = require('../algorithms/cycleDetection');
       const cycleResult = detectCycle(state.processes, state.resources, state.edges);
-      
       result = {
         isDeadlocked: cycleResult.hasCycle,
         deadlockedProcesses: cycleResult.deadlockedProcesses,
@@ -397,20 +400,18 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
         executionSteps: cycleResult.steps,
       };
     } else {
-      // Matrix-based detection
+      // Matrix-based detection — dynamic import to keep bundle smaller
       const { detectDeadlockMatrix } = require('../algorithms/matrixDetection');
       const matrixResult = detectDeadlockMatrix(state.processes, state.resources);
-      
       result = {
         isDeadlocked: matrixResult.isDeadlocked,
         deadlockedProcesses: matrixResult.deadlockedProcesses,
-        cycle: [], // Matrix detection doesn't provide cycle path
+        cycle: [],
         algorithm: 'matrix',
         executionSteps: matrixResult.steps,
       };
     }
     
-    // Update system state based on detection
     const newSystemState: SystemState = result.isDeadlocked 
       ? 'deadlocked' 
       : state.processes.some(p => p.status === 'blocked') 
@@ -418,10 +419,7 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
         : 'safe';
     
     if (result.isDeadlocked && state.systemState !== 'deadlocked') {
-      set((state) => ({
-        totalDeadlocksDetected: state.totalDeadlocksDetected + 1,
-      }));
-      
+      set((state) => ({ totalDeadlocksDetected: state.totalDeadlocksDetected + 1 }));
       get().addEvent({
         type: 'deadlock_detected',
         description: `Deadlock detected involving: ${result.deadlockedProcesses.join(', ')}`,
@@ -443,8 +441,6 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
     const state = get();
     if (state.processes.length === 0) return;
 
-    // Always use cycle detection for auto-detection (it's O(V+E) and fast)
-    const { detectCycle } = require('../algorithms/cycleDetection');
     const cycleResult = detectCycle(state.processes, state.resources, state.edges);
 
     const isDeadlocked = cycleResult.hasCycle;
@@ -469,7 +465,7 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
         deadlockedProcesses: cycleResult.deadlockedProcesses,
         cycle: cycleResult.cycle,
         algorithm: 'cycle',
-        executionSteps: [], // no steps for auto-detect
+        executionSteps: [],
       },
       systemState: newSystemState,
     });
@@ -576,6 +572,9 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
     for (const r of (scenario.requests ?? [])) {
       get().requestResource(resolveProcess(r.process), resolveResource(r.resource));
     }
+
+    // Run detection after scenario is fully loaded
+    setTimeout(() => get()._autoDetect(), 50);
   },
 
   // Events
