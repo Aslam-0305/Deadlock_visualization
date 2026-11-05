@@ -96,6 +96,7 @@ interface SimulationState {
   // Actions - Detection
   runDetection: () => DetectionResult;
   setDetectionAlgorithm: (algorithm: 'cycle' | 'matrix') => void;
+  _autoDetect: () => void;
   
   // Actions - Recovery
   applyRecovery: (method: 'terminate' | 'preempt' | 'rollback', data: any) => void;
@@ -274,6 +275,9 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
       description: `${processId} requests ${resourceId}`,
       data: { processId, resourceId, instances },
     });
+
+    // Auto-detect after every topology change
+    setTimeout(() => get()._autoDetect(), 0);
     
     return true;
   },
@@ -325,6 +329,9 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
       description: `${resourceId} allocated to ${processId}`,
       data: { processId, resourceId, instances },
     });
+
+    // Auto-detect after every topology change
+    setTimeout(() => get()._autoDetect(), 0);
     
     return true;
   },
@@ -363,6 +370,9 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
       description: `${processId} released ${resourceId}`,
       data: { processId, resourceId, instances },
     });
+
+    // Auto-detect after every topology change
+    setTimeout(() => get()._autoDetect(), 0);
     
     return true;
   },
@@ -425,6 +435,44 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
 
   setDetectionAlgorithm: (algorithm) => {
     set({ detectionAlgorithm: algorithm });
+  },
+
+  // Silent auto-detection — runs after every topology change
+  // Uses cycle detection (fast, no steps generated) to keep graph reactive
+  _autoDetect: () => {
+    const state = get();
+    if (state.processes.length === 0) return;
+
+    // Always use cycle detection for auto-detection (it's O(V+E) and fast)
+    const { detectCycle } = require('../algorithms/cycleDetection');
+    const cycleResult = detectCycle(state.processes, state.resources, state.edges);
+
+    const isDeadlocked = cycleResult.hasCycle;
+    const newSystemState: SystemState = isDeadlocked
+      ? 'deadlocked'
+      : state.processes.some(p => p.status === 'blocked')
+      ? 'unsafe'
+      : 'safe';
+
+    if (isDeadlocked && state.systemState !== 'deadlocked') {
+      set(s => ({ totalDeadlocksDetected: s.totalDeadlocksDetected + 1 }));
+      get().addEvent({
+        type: 'deadlock_detected',
+        description: `Deadlock detected: ${cycleResult.deadlockedProcesses.join(', ')}`,
+        data: { processes: cycleResult.deadlockedProcesses, cycle: cycleResult.cycle },
+      });
+    }
+
+    set({
+      detectionResult: {
+        isDeadlocked,
+        deadlockedProcesses: cycleResult.deadlockedProcesses,
+        cycle: cycleResult.cycle,
+        algorithm: 'cycle',
+        executionSteps: [], // no steps for auto-detect
+      },
+      systemState: newSystemState,
+    });
   },
 
   // Recovery

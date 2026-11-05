@@ -1,4 +1,4 @@
-import { useMemo, memo, useEffect, useState } from 'react';
+import { useMemo, memo, useState } from 'react';
 import ReactFlow, {
   Node, Edge, Controls, Background, MarkerType,
   Panel, NodeProps, Handle, Position,
@@ -90,7 +90,7 @@ function StateBadge({ state }: { state: string }) {
 
 /* ── Solutions panel ─────────────────────────────────────────── */
 function SolutionsPanel({ deadlockedIds, cycleIds }: { deadlockedIds: string[]; cycleIds: string[] }) {
-  const { terminateProcess, releaseResource, saveCheckpoint, processes, runDetection } =
+  const { terminateProcess, releaseResource, saveCheckpoint, processes, _autoDetect } =
     useSimulationStore();
   const [open, setOpen] = useState<string | null>('terminate');
   const [done, setDone] = useState<string[]>([]);
@@ -103,13 +103,13 @@ function SolutionsPanel({ deadlockedIds, cycleIds }: { deadlockedIds: string[]; 
   const handleTerminate = (pid: string) => {
     terminateProcess(pid);
     mark(`t-${pid}`);
-    setTimeout(() => runDetection(), 120);
+    setTimeout(() => _autoDetect(), 120);
   };
 
   const handlePreempt = (pid: string, rid: string) => {
     releaseResource(pid, rid);
     mark(`p-${pid}-${rid}`);
-    setTimeout(() => runDetection(), 120);
+    setTimeout(() => _autoDetect(), 120);
   };
 
   const handleCheckpoint = () => {
@@ -292,20 +292,11 @@ export default function ResourceGraph() {
   const storeEdges      = useSimulationStore(s => s.edges);
   const detectionResult = useSimulationStore(s => s.detectionResult);
   const systemState     = useSimulationStore(s => s.systemState);
-  const runDetection    = useSimulationStore(s => s.runDetection);
   const resetSimulation = useSimulationStore(s => s.resetSimulation);
 
   const isDeadlocked  = detectionResult?.isDeadlocked ?? false;
   const cycleIds      = detectionResult?.cycle ?? [];
   const deadlockedIds = detectionResult?.deadlockedProcesses ?? [];
-
-  // Auto-run detection whenever topology changes
-  useEffect(() => {
-    if (processes.length > 0 && storeEdges.length > 0) {
-      runDetection();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [storeEdges.length, processes.length, resources.length]);
 
   /* ── nodes ── */
   const nodes: Node[] = useMemo(() => {
